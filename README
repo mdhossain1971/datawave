@@ -1,0 +1,253 @@
+After creating the project and project structure
+python-microservice/
+├── app/
+│   ├── main.py               # Entry point like Application.java
+│   ├── routes/               # Like Controller package
+│   │   └── hello.py
+│   ├── services/             # Like Service package
+│   │   └── greet_service.py
+│   └── models/               # Like DTOs or domain objects
+│       └── message.py
+├── tests/                    # Like src/test/java
+│   └── test_hello.py
+├── Dockerfile
+├── requirements.txt
+└── README.md
+
+
+Create vitural env:
+    python3 -m venv venv (This creates a folder named venv/ which contains a local Python interpreter + libraries.)
+Activate the Environment:
+     python3 -m venv venv
+     Now any pip install installs only inside the venv, not globally.
+Add in requirement.txt fastapi
+                       uvicorn
+                       pytest
+pip install -r requirements.txt --this will install all inside this file.
+
+To deactivate:
+    deactivate (This switches back to your system Python.)
+
+Add .gitignore
+    If using Git, add this to .gitignore to avoid committing the virtual environment:
+    markdown
+    Copy
+    Edit
+
+pip install fastapi uvicorn
+
+run the APP
+===========
+PYTHONPATH=src/main/python uvicorn app.main:app --reload
+or
+source venv/bin/activate
+PYTHONPATH=src/main python3 -m uvicorn app.main:app --reload --port 8001
+
+Verify endpoints
+================
+http://127.0.0.1:8001/health
+http://127.0.0.1:8001/docs
+
+Clean up repo:
+Delete stray .DS_Store files:
+
+test env:
+=========
+to use env, need to install followings
+    pip install pydantic-settings
+
+PYTHONPATH=src/main/python python -c "from app.config.settings import settings; print(settings.dict())"
+
+Test
+====
+pip install httpx
+PYTHONPATH=src/main/python pytest src/test/python/
+
+adding db
+=========
+pip install sqlalchemy asyncpg psycopg2-binary databases
+
+    plan:
+    =====
+    Connect to PostgreSQL using asyncpg
+    Use .env to add DB config
+    Create a table with SQL (at startup)
+    Add endpoints:
+        POST /users – add user
+        GET /users – list users
+
+    install:
+        pip install asyncpg
+
+Run in docker with docker compose.
+=================================
+    1. install docker or run docker
+    2. docker compose up --build
+    3. to see logs: docker logs -f your_postgres_container_name
+    4. Test: http://localhost:8000/docs#
+    5. To clean up:
+        docker compose down
+
+Run Locally
+===========
+To run locally we need to install db, create user postgres with password postgres and grant all privilege.
+Then create mydb. Steps are as follows:
+    1. install db:
+        brew install postgresql@15
+        brew services start postgresql@15
+        stop postgres service
+        =====================
+        brew services stop postgresql@15
+
+    2. create db and user. Open terminal and run followings
+        psql -U postgres
+
+        inside psql shell run the followings
+        -- Create database
+        CREATE DATABASE mydb;
+        -- Create user (if not exists)
+        CREATE USER postgres WITH PASSWORD 'postgres';
+        -- Grant privileges
+        GRANT ALL PRIVILEGES ON DATABASE mydb TO postgres;
+
+        Now in bash test it with the followings
+        psql -U postgres -d mydb -h localhost -p 5432
+
+        to connect to database
+        psql -U tazmeen -d postgres
+
+        For datawave db what I did:
+        1. Connect as superuser: psql -U tazmeen -d postgres -h localhost -p 5432
+        2. Inside the psql:
+            -- Create user (role)
+            CREATE USER datawave WITH PASSWORD 'password';
+            -- Create database owned by that user
+            CREATE DATABASE datawave OWNER datawave;
+            \du    -- lists roles (you should see datawave)
+            \l     -- lists databases (you should see datawave owned by datawave)
+        3. Test: psql "postgresql://datawave:password@localhost:5432/datawave" -c "\conninfo"
+
+
+    3. now run the app.
+       PYTHONPATH=src/main/python uvicorn app.main:app --reload
+
+       test: http://localhost:8000/docs#
+
+Trouble shoot:
+    Error: I couldn't run and got error: zsh: command not found: uvicorn
+    Fixed: source venv/bin/activate
+
+1) Remove the extra env and recreate one clean env
+    cd /Users/tazmeen/project/datawave
+
+    # Deactivate any active env
+    deactivate 2>/dev/null || true
+
+    # Remove the duplicate env (we're keeping venv, deleting .venv)
+    rm -rf .venv
+
+    # (Re)create venv fresh and install deps
+    python3 -m venv venv
+    source venv/bin/activate
+    python -m pip install --upgrade pip
+    pip install -r requirements.txt
+
+    Sanity check:
+    which python
+    python -c "import sys; print(sys.executable)"
+    python -m pip show uvicorn fastapi
+
+
+
+===================docker==========
+# Base image
+FROM python:3.11-slim
+
+# Prevent .pyc & ensure logs flush
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # Make your src importable as "app.*"
+    PYTHONPATH=/app/src/main
+
+# Set workdir
+WORKDIR /app
+
+# Install system deps (small, safe set; expand if your libs need more)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Leverage layer caching: copy only requirements first
+COPY requirements.txt .
+
+# Install Python deps
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Now copy your source
+COPY . .
+
+# (Optional) create non-root user
+RUN useradd -m appuser
+USER appuser
+
+# Expose for clarity (uvicorn listens on 8000)
+EXPOSE 8000
+
+# Health check (expects /health route)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD curl -fsS http://127.0.0.1:8000/health || exit 1
+
+# Run FastAPI: thanks to PYTHONPATH, this resolves to app.main:app
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+============Build & run=============
+docker build -t datawave-api .
+docker run --rm -p 8000:8000 \
+  -e DATABASE_URL="postgresql+asyncpg://postgres:postgres@host.docker.internal:5432/mydb" \
+  --name datawave datawave-api
+
+================Docker compose==============
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    container_name: datawave_db
+    environment:
+      POSTGRES_USER: dw_user
+      POSTGRES_PASSWORD: dw_pass
+      POSTGRES_DB: datawave
+    ports:
+      - "5432:5432"   # expose for local psql access
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dw_user -d datawave"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: datawave_api
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # If you want fast reload in dev, uncomment the next two lines
+    # volumes:
+    #   - ./src/main:/app/src/main
+
+volumes:
+  pgdata:
+==================build and run=============
+docker compose up -d --build
+docker compose logs -f api
+
+==============db sanity check===========
+# connect from host
+psql "postgresql://dw_user:dw_pass@localhost:5432/datawave" -c "\dt"
