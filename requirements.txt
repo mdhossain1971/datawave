@@ -4,3 +4,10 @@ pydantic-settings
 httpx
 pytest
 asyncpg
+
+confluent-kafka
+fastavro
+attrs
+orjson
+cachetools
+authlib

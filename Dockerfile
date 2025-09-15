@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy entire source tree into container (src will be included)
-COPY . .
+COPY src/main /app
 
-# Run FastAPI from src.main path
-CMD ["uvicorn", "src.main.app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI from app path
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

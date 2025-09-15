@@ -251,3 +251,55 @@ docker compose logs -f api
 ==============db sanity check===========
 # connect from host
 psql "postgresql://dw_user:dw_pass@localhost:5432/datawave" -c "\dt"
+
+
+kafka
+=====
+brew install jq coreutils
+brew install librdkafka # Need for kafka specially on mac
+# Pick a work dir
+mkdir -p ~/dev/kafka && cd ~/dev/kafka
+
+# Download (7.6.1 is stable at the moment)
+curl -LO https://packages.confluent.io/archive/7.6/confluent-7.6.1.tar.gz
+tar xzf confluent-7.6.1.tar.gz
+cd confluent-7.6.1
+
+# set envs for this terminal (optional)
+export CONFLUENT_HOME="$PWD"
+export PATH="$CONFLUENT_HOME/bin:$PATH"
+export JAVA_HOME=$(/usr/libexec/java_home -v 23)   # adjust if using other version like 17
+The following 3 steps do in 3 window
+Start zookeeper: bin/zookeeper-server-start etc/kafka/zookeeper.properties
+Start kafka broker: bin/kafka-server-start etc/kafka/server.properties
+Create topic: bin/schema-registry-start etc/schema-registry/schema-registry.properties
+verfy: curl -s http://localhost:8081/subjects
+register schema:
+curl -s -X POST http://localhost:8081/subjects/user-events-value/versions \
+  -H 'Content-Type: application/vnd.schemaregistry.v1+json' \
+  -d @<(jq -n --arg schema "$(jq -c . schemas/user_created.avsc)" '{schema: $schema}')
+check:
+curl -s http://localhost:8081/subjects
+curl -s http://localhost:8081/subjects/user-events-value/versions
+
+Add the followings in requirements.txt
+confluent-kafka
+fastavro
+attrs
+orjson
+cachetools
+authlib
+Run the following in separate window:
+# terminal A (your app)
+PYTHONPATH=src/main uvicorn app.main:app --reload --port 8000
+
+# terminal B (consumer)
+PYTHONPATH=src/main python -m app.kafka.consumer
+
+another window create user:
+curl -X POST http://127.0.0.1:8001/users \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","email":"alice@example.com"}'
+
+
+

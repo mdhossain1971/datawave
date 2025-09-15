@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "UserCreated",
+  "namespace": "dwai.users",
+  "fields": [
+    {"name": "id", "type": "long"},
+    {"name": "name", "type": "string"},
+    {"name": "email", "type": "string"},
+    {"name": "created_at", "type": "string"}
+  ]
+}
