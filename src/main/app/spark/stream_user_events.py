@@ -90,14 +90,41 @@ result = (parsed
           .withColumnRenamed("created_at", "event_time")
           .filter(col("email").isNotNull()))
 
+# --- Print schema for clarity ---
+print("📌 Parsed DataFrame schema:")
+parsed.printSchema()
+
+print("📌 Result DataFrame schema:")
+result.printSchema()
+
 # Write stream to Parquet on MinIO/S3
-query = (result.writeStream
+s3_query = (result.writeStream
          .format("parquet")
          .option("path", OUT_PATH)
          .option("checkpointLocation", CHECKPOINT)
          .outputMode("append")
          .start())
 
+# --- Write 2: debug parsed DataFrame (raw before filter/rename) ---
+parsed_query = (parsed.writeStream
+                .outputMode("append")
+                .format("console")
+                .option("truncate", "false")
+                .option("numRows", 20)   # show up to 20 rows per microbatch
+                .start())
+
+# --- Write 3: debug result DataFrame (after filter/rename) ---
+result_query = (result.writeStream
+                .outputMode("append")
+                .format("console")
+                .option("truncate", "false")
+                .option("numRows", 20)
+                .start())
+
 print(f"🚀 Streaming to {OUT_PATH} (checkpoint: {CHECKPOINT})")
-query.awaitTermination()
+print("👀 Console debug streams started for parsed and result...")
+#s3_query.awaitTermination()
+
+# --- Blocks the driver until any one query (out of all active ones) stops or errors.
+spark.streams.awaitAnyTermination()
 
