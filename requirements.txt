@@ -11,3 +11,5 @@ attrs
 orjson
 cachetools
 authlib
+
+requests

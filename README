@@ -301,5 +301,50 @@ curl -X POST http://127.0.0.1:8001/users \
   -H "Content-Type: application/json" \
   -d '{"name":"Alice","email":"alice@example.com"}'
 
+==============================================
+SPARK
+==============================================
+spark need jdk and competable 11 or 17
+so as my jdk 23. so I open a seperate shell and did the followings
+brew install --cask temurin@17
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 
+this shell is only for spark as I am running it as consumer. so I am not addding to requirements.txt
+so
+cd project/datawave
+source venv/bin/activate
+pip install pyspark==3.5.1
+python -c "import pyspark; print(pyspark.__version__)"   # expect 3.5.1
 
+Start your local infra (minio) (S3-compatible)
+----------------------------------------------
+I am using docker for this
+docker run -d --name minio \
+  -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin \
+  -e MINIO_ROOT_PASSWORD=minioadmin \
+  quay.io/minio/minio server /data --console-address ":9001"
+
+ - Console: [http://localhost:9001](http://localhost:9001/) (login: 'minioadmin'/ 'minioadmin')
+ - Create a bucket named: 'data-lake'
+ To run spark and consume message from kafka we need the following config and then run spark job
+ export EVENT_FORMAT=avro
+export KAFKA_BOOTSTRAP=localhost:9092
+export KAFKA_TOPIC=user-events
+export SCHEMA_REGISTRY_URL=http://localhost:8081
+export SCHEMA_SUBJECT=user-events-value
+
+# S3/MinIO
+export S3_ENDPOINT=http://localhost:9000
+export S3_ACCESS_KEY=minioadmin
+export S3_SECRET_KEY=minioadmin
+export S3_BUCKET=data-lake
+export S3_PREFIX=user-events
+
+spark-submit \
+  --packages \
+org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,\
+org.apache.spark:spark-avro_2.12:3.5.1,\
+org.apache.hadoop:hadoop-aws:3.3.4,\
+com.amazonaws:aws-java-sdk-bundle:1.12.262 \
+  src/main/app/spark/stream_user_events.py
