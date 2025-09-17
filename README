@@ -351,3 +351,11 @@ com.amazonaws:aws-java-sdk-bundle:1.12.262 \
 
   -- Spark UI (very helpful): http://localhost:4040
   -- minio UI http://localhost:9001/
+
+========================NLP and Embedding============
+pip install -r requirements.txt
+python -m spacy download en_core_web_sm
+python -c "import nltk; nltk.download('punkt'); nltk.download('stopwords')"
+
+======Trouble:
+    ssl.SSLError: [SSL: WRONG_VERSION_NUMBER] wrong version number (_ssl.c:1129)
