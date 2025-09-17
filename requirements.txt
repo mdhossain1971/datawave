@@ -13,3 +13,9 @@ cachetools
 authlib
 
 requests
+
+nltk
+spacy
+sentence-transformers
+faiss-cpu===1.9.0.post1      # if on Apple Silicon and this fails, use: faiss-cpu==1.7.4
+
