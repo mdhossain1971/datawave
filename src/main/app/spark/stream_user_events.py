@@ -105,6 +105,11 @@ s3_query = (result.writeStream
          .outputMode("append")
          .start())
 
+# --- Write : print the original bytes-as-string what's really coming ---
+raw_debug = (
+    raw.selectExpr("CAST(value AS STRING) AS raw_value", "timestamp", "partition", "offset")
+       .writeStream.format("console").option("truncate", "false").start()
+)
 # --- Write 2: debug parsed DataFrame (raw before filter/rename) ---
 parsed_query = (parsed.writeStream
                 .outputMode("append")
